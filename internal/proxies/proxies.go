@@ -1,7 +1,7 @@
 package proxies
 
 import (
-	"log"
+	"proxyfy/pkg/logger"
 
 	"proxyfy/config"
 	"proxyfy/internal/proxies/httpproxy"
@@ -17,22 +17,17 @@ type ProxyManager struct {
 	proxies []Proxy
 }
 
-const (
-	logFlags = log.Ldate | log.Ltime | log.Lshortfile | log.Lmicroseconds
-)
-
 func NewProxyManager(cfg *config.Conf) *ProxyManager {
-	log.SetFlags(logFlags)
-
 	var proxyServers []Proxy
 
 	for _, v := range cfg.Http {
 		if len(v.Listen) == 0 {
-			log.Fatal("http listen address is empty?")
+			logger.Log.Fatal("http listen address is empty?")
 		}
+
 		s, err := httpproxy.New(&v)
 		if err != nil {
-			log.Fatalf("Can't create http listener on %v: %s", v, err)
+			logger.Log.Fatalf("Can't create http listener on %v: %s", v, err)
 		}
 
 		proxyServers = append(proxyServers, s)

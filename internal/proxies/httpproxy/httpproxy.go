@@ -3,15 +3,14 @@ package httpproxy
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/opencoff/go-ratelimit"
-
 	"proxyfy/config"
+	"proxyfy/pkg/logger"
 )
 
 type HTTPProxy struct {
@@ -82,7 +81,7 @@ func (p *HTTPProxy) Start() {
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
-		log.Printf("Starting HTTP proxy .. at :%s\n", p.lis.Addr())
+		logger.Log.Infof("Starting HTTP proxy .. at :%s\n", p.lis.Addr())
 		p.server.Serve(p)
 	}()
 }
@@ -97,5 +96,5 @@ func (p *HTTPProxy) Stop() {
 	cancel()
 
 	p.wg.Wait()
-	log.Printf("HTTP proxy shutdown\n")
+	logger.Log.Infoln("HTTP proxy shutdown")
 }

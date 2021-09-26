@@ -1,13 +1,13 @@
 package main
 
 import (
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"proxyfy/config"
 	"proxyfy/internal/proxies"
+	"proxyfy/pkg/logger"
 )
 
 func main() {
@@ -17,14 +17,14 @@ func main() {
 	var configFile string
 
 	if len(os.Args) < 2 {
-		log.Println("no config file provided. Using the default config!")
+		logger.Log.Warningln("no config file provided. Using the default config!")
 
 		configFile = "config/default.conf"
 	}
 
 	cfg, err := config.ReadYAML(configFile)
 	if err != nil {
-		log.Fatalf("Can't read config file %s: %s", configFile, err)
+		logger.Log.Fatalf("Can't read config file %s: %s", configFile, err)
 	}
 
 	pm := proxies.NewProxyManager(cfg)
@@ -41,7 +41,7 @@ func main() {
 		s := <-sigChan
 		t := s.(syscall.Signal)
 
-		log.Printf("Caught signal %d; Terminating ..\n", int(t))
+		logger.Log.Infoln("Caught signal %d; Terminating ..", int(t))
 		break
 	}
 

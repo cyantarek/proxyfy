@@ -1,8 +1,9 @@
 package privileges
 
 import (
-	"proxyfy/config"
 	"net"
+
+	"proxyfy/config"
 )
 
 // ACLCheck Returns true if the new connection 'conn' passes the ACL checks
@@ -32,4 +33,3 @@ func ACLCheck(cfg *config.ListenConf, conn net.Conn) bool {
 
 	return false
 }
-

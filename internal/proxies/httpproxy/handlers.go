@@ -3,13 +3,13 @@ package httpproxy
 import (
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"strings"
 	"time"
 
 	"proxyfy/pkg/copier"
+	"proxyfy/pkg/logger"
 	"proxyfy/pkg/privileges"
 )
 
@@ -35,18 +35,18 @@ func (p *HTTPProxy) Accept() (net.Conn, error) {
 
 		if !p.limiter.Allow() {
 			nc.Close()
-			log.Printf("%s: globally rate limited\n", nc.RemoteAddr().String())
+			logger.Log.Warningf("%s: globally rate limited\n", nc.RemoteAddr().String())
 			continue
 		}
 
 		if !p.limiter.AllowHost(nc.RemoteAddr()) {
 			nc.Close()
-			log.Printf("%s: per-IP rate limited\n", nc.RemoteAddr().String())
+			logger.Log.Infof("%s: per-IP rate limited\n", nc.RemoteAddr().String())
 			continue
 		}
 
 		if !privileges.ACLCheck(p.conf, nc) {
-			log.Printf("%s: ACL failure\n", nc.RemoteAddr().String())
+			logger.Log.Warningf("%s: ACL failure\n", nc.RemoteAddr().String())
 			nc.Close()
 			continue
 		}
@@ -59,7 +59,7 @@ func (p *HTTPProxy) Accept() (net.Conn, error) {
 func (p *HTTPProxy) handleConnect(w http.ResponseWriter, r *http.Request) {
 	h, ok := w.(http.Hijacker)
 	if !ok {
-		log.Printf("can't do CONNECT: hijack failed\n")
+		logger.Log.Warningln("can't do CONNECT: hijack failed")
 		http.Error(w, "Can't support CONNECT", http.StatusNotImplemented)
 
 		return
@@ -67,7 +67,7 @@ func (p *HTTPProxy) handleConnect(w http.ResponseWriter, r *http.Request) {
 
 	client, _, err := h.Hijack()
 	if err != nil {
-		log.Printf("can't do CONNECT: hijack failed: %s\n", err)
+		logger.Log.Warningf("can't do CONNECT: hijack failed: %s\n", err)
 		http.Error(w, "Can't support CONNECT", http.StatusNotImplemented)
 		client.Close()
 
@@ -80,7 +80,7 @@ func (p *HTTPProxy) handleConnect(w http.ResponseWriter, r *http.Request) {
 
 	dest, err := p.transport.DialContext(ctx, "tcp", host)
 	if err != nil {
-		log.Printf("can't connect to %s: %s\n", host, err)
+		logger.Log.Warningf("can't connect to %s: %s\n", host, err)
 		http.Error(w, fmt.Sprintf("can't connect to %s", host), http.StatusInternalServerError)
 		client.Close()
 		return
@@ -92,7 +92,7 @@ func (p *HTTPProxy) handleConnect(w http.ResponseWriter, r *http.Request) {
 	s := client.(*net.TCPConn)
 	d := dest.(*net.TCPConn)
 
-	log.Printf("%s: CONNECT %s\n", s.RemoteAddr().String(), host)
+	logger.Log.Warningf("%s: CONNECT %s\n", s.RemoteAddr().String(), host)
 
 	cp := &copier.CancellableCopier{
 		LeftConn:     s,
@@ -115,7 +115,7 @@ func (p *HTTPProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !r.URL.IsAbs() {
-		log.Printf("%s: non-proxy req for %q\n", r.Host, r.URL.String())
+		logger.Log.Warningf("%s: non-proxy req for %q\n", r.Host, r.URL.String())
 		http.Error(w, "No support for non-proxy requests", 500)
 		return
 	}
@@ -134,7 +134,7 @@ func (p *HTTPProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	res, err := p.transport.RoundTrip(r)
 	if err != nil {
-		log.Printf("%s: %s\n", r.Host, err)
+		logger.Log.Infof("%s: %s\n", r.Host, err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -166,7 +166,7 @@ func (p *HTTPProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	nr, err := io.Copy(w, res.Body)
 	if err != nil {
-		log.Printf("%s: %s\n", r.Host, err)
+		logger.Log.Infof("%s: %s\n", r.Host, err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -185,7 +185,7 @@ func (p *HTTPProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	t2 := time.Now()
 
-	log.Printf("%s: %d %d %s %s\n", r.Host, res.StatusCode, nr, t2.Sub(t0), r.URL.String())
+	logger.Log.Infof("%s: %d %d %s %s\n", r.Host, res.StatusCode, nr, t2.Sub(t0), r.URL.String())
 
 	// Timing log
 	d0 := format(t1.Sub(t0))
@@ -193,7 +193,7 @@ func (p *HTTPProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	log.Printf("time=%q url=%q status=\"%d\" bytes=\"%d\" upstream=%q downstream=%q\n", now, r.URL.String(), res.StatusCode, nr, d0, d1)
+	logger.Log.Infof("time=%q url=%q status=\"%d\" bytes=\"%d\" upstream=%q downstream=%q\n", now, r.URL.String(), res.StatusCode, nr, d0, d1)
 }
 
 func (p *HTTPProxy) Close() error {
