@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -12,19 +11,20 @@ import (
 )
 
 func main() {
-	usage := fmt.Sprintf("%s config-file", "proxy")
-
 	// any files we create will be readable ONLY by us
 	syscall.Umask(0077)
 
-	args := os.Args
-	if len(args) < 2 {
-		log.Fatalf("No config file!\nUsage: %s", usage)
+	var configFile string
+
+	if len(os.Args) < 2 {
+		log.Println("no config file provided. Using the default config!")
+
+		configFile = "config/default.conf"
 	}
 
-	cfg, err := config.ReadYAML(args[1])
+	cfg, err := config.ReadYAML(configFile)
 	if err != nil {
-		log.Fatalf("Can't read config file %s: %s", args[0], err)
+		log.Fatalf("Can't read config file %s: %s", configFile, err)
 	}
 
 	pm := proxies.NewProxyManager(cfg)
